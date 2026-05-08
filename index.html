@@ -1,0 +1,1163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Airtable Integration & Data Flow — ActiveCampaign</title>
+  <style>
+    /* ─── RESET & BASE ─── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: #f7f5f2;
+      color: #2d2d2d;
+      line-height: 1.7;
+      font-size: 15px;
+    }
+
+    /* ─── COLOUR PALETTE ─── */
+    :root {
+      --sage:        #7ea894;
+      --sage-light:  #c5dbd4;
+      --sage-pale:   #edf4f1;
+      --blush:       #e8b4a0;
+      --blush-light: #f6ddd5;
+      --blush-pale:  #fdf4f0;
+      --gold:        #c9a96e;
+      --gold-light:  #f0e3cc;
+      --gold-pale:   #fdf8ef;
+      --slate:       #4a6274;
+      --slate-light: #dce6ed;
+      --slate-pale:  #f0f5f8;
+      --ink:         #1e2d3a;
+      --muted:       #6b7a85;
+      --border:      #e0ddd8;
+      --white:       #ffffff;
+    }
+
+    /* ─── COVER ─── */
+    .cover {
+      background: linear-gradient(135deg, #1e2d3a 0%, #2e4a5e 45%, #3d6b5e 100%);
+      color: white;
+      padding: 72px 48px 60px;
+      position: relative;
+      overflow: hidden;
+    }
+    .cover::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: radial-gradient(ellipse at 80% 20%, rgba(126,168,148,.35) 0%, transparent 60%),
+                  radial-gradient(ellipse at 10% 90%, rgba(201,169,110,.2) 0%, transparent 50%);
+      pointer-events: none;
+    }
+    .cover-inner { position: relative; max-width: 900px; margin: 0 auto; }
+    .cover-tag {
+      display: inline-block;
+      background: rgba(255,255,255,.15);
+      border: 1px solid rgba(255,255,255,.25);
+      border-radius: 20px;
+      padding: 4px 14px;
+      font-size: 11px;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      margin-bottom: 20px;
+      color: rgba(255,255,255,.85);
+    }
+    .cover h1 {
+      font-size: clamp(28px, 4vw, 46px);
+      font-weight: 700;
+      letter-spacing: -.02em;
+      line-height: 1.15;
+      margin-bottom: 14px;
+    }
+    .cover h1 span { color: #a8d4c5; }
+    .cover-sub {
+      font-size: 17px;
+      color: rgba(255,255,255,.75);
+      max-width: 560px;
+      margin-bottom: 36px;
+    }
+    .cover-meta {
+      display: flex;
+      gap: 24px;
+      flex-wrap: wrap;
+    }
+    .cover-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255,255,255,.1);
+      border-radius: 8px;
+      padding: 8px 16px;
+      font-size: 13px;
+      color: rgba(255,255,255,.85);
+    }
+    .cover-pill svg { opacity: .7; flex-shrink: 0; }
+
+    /* ─── NAV ─── */
+    .toc-bar {
+      background: var(--white);
+      border-bottom: 1px solid var(--border);
+      position: sticky; top: 0;
+      z-index: 100;
+      padding: 0 48px;
+    }
+    .toc-bar-inner {
+      max-width: 900px; margin: 0 auto;
+      display: flex; gap: 0;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .toc-bar-inner::-webkit-scrollbar { display: none; }
+    .toc-link {
+      display: block;
+      padding: 14px 18px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      color: var(--muted);
+      text-decoration: none;
+      border-bottom: 2px solid transparent;
+      white-space: nowrap;
+      transition: color .2s, border-color .2s;
+    }
+    .toc-link:hover { color: var(--slate); border-color: var(--sage); }
+
+    /* ─── MAIN WRAPPER ─── */
+    .main { max-width: 900px; margin: 0 auto; padding: 48px 48px 80px; }
+
+    /* ─── SECTION ─── */
+    .section { margin-bottom: 56px; }
+    .section-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+    .section-icon {
+      width: 44px; height: 44px;
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      font-size: 20px;
+    }
+    .icon-sage   { background: var(--sage-pale);  color: var(--sage);  }
+    .icon-blush  { background: var(--blush-pale); color: #c27055; }
+    .icon-gold   { background: var(--gold-pale);  color: #a07c3a; }
+    .icon-slate  { background: var(--slate-pale); color: var(--slate); }
+    .icon-ink    { background: #e8edf2;            color: var(--ink);   }
+
+    .section-title-group h2 {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--ink);
+      letter-spacing: -.02em;
+      line-height: 1.2;
+    }
+    .section-title-group p {
+      font-size: 13.5px;
+      color: var(--muted);
+      margin-top: 3px;
+    }
+
+    /* ─── CARDS ─── */
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 16px;
+    }
+    .card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 22px;
+      transition: box-shadow .2s, transform .2s;
+    }
+    .card:hover { box-shadow: 0 6px 24px rgba(0,0,0,.07); transform: translateY(-2px); }
+    .card-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    .card h3 { font-size: 15px; font-weight: 700; color: var(--ink); margin-bottom: 6px; }
+    .card p { font-size: 13.5px; color: #5a6472; line-height: 1.6; }
+
+    .label-sage  { color: var(--sage); }
+    .label-blush { color: #c27055; }
+    .label-gold  { color: #a07c3a; }
+    .label-slate { color: var(--slate); }
+
+    /* ─── FLOW DIAGRAM ─── */
+    .flow-diagram {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 32px 28px;
+      margin-bottom: 20px;
+    }
+    .flow-row {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+    .flow-node {
+      background: var(--sage-pale);
+      border: 1.5px solid var(--sage-light);
+      border-radius: 10px;
+      padding: 10px 18px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ink);
+      white-space: nowrap;
+    }
+    .flow-node.gold  { background: var(--gold-pale);  border-color: var(--gold-light);  }
+    .flow-node.blush { background: var(--blush-pale); border-color: var(--blush-light); }
+    .flow-node.slate { background: var(--slate-pale); border-color: var(--slate-light); }
+    .flow-node.dark  { background: var(--ink); color: white; border-color: var(--ink);  }
+    .flow-arrow {
+      padding: 0 10px;
+      color: var(--muted);
+      font-size: 16px;
+    }
+    .flow-sub {
+      font-size: 12px;
+      color: var(--muted);
+      padding: 4px 18px;
+    }
+
+    /* ─── TABLE ─── */
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+      font-size: 13.5px;
+    }
+    .data-table thead tr { background: var(--sage-pale); }
+    .data-table th {
+      text-align: left;
+      padding: 12px 16px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--sage);
+    }
+    .data-table td {
+      padding: 12px 16px;
+      border-top: 1px solid var(--border);
+      color: #444;
+      vertical-align: top;
+    }
+    .data-table tr:hover td { background: var(--sage-pale); }
+    .badge {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: .04em;
+    }
+    .badge-sage  { background: var(--sage-pale);  color: var(--sage);  }
+    .badge-blush { background: var(--blush-pale); color: #c27055; }
+    .badge-gold  { background: var(--gold-pale);  color: #a07c3a; }
+    .badge-slate { background: var(--slate-pale); color: var(--slate); }
+
+    /* ─── AUTOMATION CARDS ─── */
+    .auto-card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 22px 24px;
+      margin-bottom: 14px;
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 16px;
+      align-items: start;
+    }
+    .auto-num {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 700;
+      flex-shrink: 0;
+    }
+    .auto-body h4 { font-size: 14.5px; font-weight: 700; color: var(--ink); margin-bottom: 4px; }
+    .auto-body p  { font-size: 13px; color: #5a6472; line-height: 1.6; }
+    .auto-trigger {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 20px;
+      white-space: nowrap;
+      align-self: center;
+    }
+
+    /* ─── DASHBOARD SECTION ─── */
+    .dash-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 16px;
+    }
+    .dash-panel {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+    .dash-panel-header {
+      padding: 14px 18px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      border-bottom: 1px solid var(--border);
+    }
+    .dash-panel-body { padding: 16px 18px; }
+    .dash-metric {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      font-size: 13px;
+    }
+    .dash-metric span { font-size: 12px; color: var(--muted); }
+    .progress-bar-wrap { height: 6px; background: var(--border); border-radius: 4px; margin-top: 4px; margin-bottom: 12px; }
+    .progress-bar { height: 100%; border-radius: 4px; }
+
+    .view-chip {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      margin: 3px 3px 3px 0;
+      border: 1px solid;
+    }
+
+    /* ─── MEETING ─── */
+    .meeting-timeline {
+      display: flex;
+      gap: 0;
+      margin-bottom: 24px;
+    }
+    .meeting-slot {
+      flex: 1;
+      border: 1px solid var(--border);
+      border-right: none;
+      padding: 20px 18px;
+      background: var(--white);
+      position: relative;
+    }
+    .meeting-slot:first-child { border-radius: 14px 0 0 14px; }
+    .meeting-slot:last-child  { border-radius: 0 14px 14px 0; border-right: 1px solid var(--border); }
+    .meeting-slot-time {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    .meeting-slot h4 { font-size: 14px; font-weight: 700; color: var(--ink); margin-bottom: 6px; }
+    .meeting-slot ul { list-style: none; padding: 0; }
+    .meeting-slot li {
+      font-size: 12.5px;
+      color: #5a6472;
+      padding-left: 14px;
+      position: relative;
+      margin-bottom: 4px;
+    }
+    .meeting-slot li::before {
+      content: '·';
+      position: absolute; left: 0;
+      font-weight: 700;
+      color: var(--sage);
+    }
+
+    /* ─── NOTE BOX ─── */
+    .note-box {
+      background: var(--white);
+      border: 1.5px dashed var(--border);
+      border-radius: 14px;
+      padding: 20px 24px;
+      margin-top: 16px;
+    }
+    .note-box-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .note-line {
+      border: none;
+      border-bottom: 1px solid #e8e4df;
+      display: block;
+      width: 100%;
+      margin-bottom: 10px;
+      height: 28px;
+      background: transparent;
+      outline: none;
+      font-size: 13px;
+      color: var(--ink);
+      font-family: inherit;
+    }
+    .note-line::placeholder { color: #c5bfb9; }
+
+    /* ─── INTEGRATION STRIPE ─── */
+    .integration-stripe {
+      background: linear-gradient(135deg, var(--gold-pale) 0%, var(--blush-pale) 100%);
+      border: 1px solid var(--gold-light);
+      border-radius: 16px;
+      padding: 28px 28px;
+      margin-bottom: 20px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 28px;
+    }
+    .int-block h4 {
+      font-size: 14px; font-weight: 700;
+      color: var(--ink); margin-bottom: 8px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .int-block ul { list-style: none; padding: 0; }
+    .int-block li {
+      font-size: 13px;
+      color: #5a6472;
+      padding: 5px 0;
+      border-bottom: 1px solid rgba(0,0,0,.05);
+      display: flex; gap: 8px;
+    }
+    .int-block li::before { content: '→'; color: var(--gold); font-weight: 700; }
+
+    /* ─── ALERT SECTION ─── */
+    .alert-row {
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+      padding: 14px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .alert-row:last-child { border-bottom: none; }
+    .alert-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      margin-top: 5px;
+      flex-shrink: 0;
+    }
+    .alert-row h5 { font-size: 14px; font-weight: 600; color: var(--ink); margin-bottom: 3px; }
+    .alert-row p  { font-size: 13px; color: var(--muted); }
+
+    /* ─── FOOTER ─── */
+    .footer {
+      background: var(--ink);
+      color: rgba(255,255,255,.5);
+      text-align: center;
+      padding: 28px;
+      font-size: 12px;
+    }
+    .footer strong { color: rgba(255,255,255,.8); }
+
+    /* ─── DIVIDER ─── */
+    .divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 40px 0;
+    }
+
+    /* ─── PRINT / RESPONSIVE ─── */
+    @media (max-width: 640px) {
+      .cover { padding: 48px 24px 40px; }
+      .main { padding: 32px 20px 60px; }
+      .toc-bar { padding: 0 20px; }
+      .integration-stripe { grid-template-columns: 1fr; }
+      .meeting-timeline { flex-direction: column; }
+      .meeting-slot { border-right: 1px solid var(--border); border-bottom: none; }
+      .meeting-slot:first-child { border-radius: 14px 14px 0 0; }
+      .meeting-slot:last-child  { border-radius: 0 0 14px 14px; border-bottom: 1px solid var(--border); }
+      .auto-card { grid-template-columns: auto 1fr; }
+      .auto-trigger { grid-column: 2; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ╔══════════════════════════════════════════════════════╗ -->
+<!-- ║                      COVER                          ║ -->
+<!-- ╚══════════════════════════════════════════════════════╝ -->
+<div class="cover">
+  <div class="cover-inner">
+    <div class="cover-tag">ActiveCampaign · Internal Strategy</div>
+    <h1>Airtable Integration<br><span>&amp; Data Flow</span></h1>
+    <p class="cover-sub">A working guide for structuring OKRs, initiatives, projects, channels, tactics, teams, and tasks — connected through intelligent automations, dynamic dashboards, and live data integrations.</p>
+    <div class="cover-meta">
+      <div class="cover-pill">
+        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+        May 2026
+      </div>
+      <div class="cover-pill">
+        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+        20-Min Meeting Cadence
+      </div>
+      <div class="cover-pill">
+        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Cross-Team Collaboration
+      </div>
+      <div class="cover-pill">
+        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        Live Data · Snowflake · Google Sheets
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ╔══════════════════════════════════════════════════════╗ -->
+<!-- ║                    STICKY NAV                       ║ -->
+<!-- ╚══════════════════════════════════════════════════════╝ -->
+<nav class="toc-bar">
+  <div class="toc-bar-inner">
+    <a href="#data-structure" class="toc-link">Data Structure</a>
+    <a href="#integrations"   class="toc-link">Integrations</a>
+    <a href="#automations"    class="toc-link">Automations</a>
+    <a href="#dashboards"     class="toc-link">Dashboards</a>
+    <a href="#alerts"         class="toc-link">Alerts &amp; AI</a>
+    <a href="#meeting"        class="toc-link">Meeting Cadence</a>
+    <a href="#questions"      class="toc-link">Questions for Airtable</a>
+    <a href="#notes"          class="toc-link">Notes</a>
+  </div>
+</nav>
+
+<!-- ╔══════════════════════════════════════════════════════╗ -->
+<!-- ║                   MAIN CONTENT                      ║ -->
+<!-- ╚══════════════════════════════════════════════════════╝ -->
+<main class="main">
+
+
+  <!-- ════════ 1. DATA STRUCTURE ════════ -->
+  <section id="data-structure" class="section">
+    <div class="section-header">
+      <div class="section-icon icon-sage">🗂</div>
+      <div class="section-title-group">
+        <h2>Data Structure &amp; Table Hierarchy</h2>
+        <p>How every object connects — from strategy to execution.</p>
+      </div>
+    </div>
+
+    <!-- Flow diagram -->
+    <div class="flow-diagram">
+      <p style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:20px;">Hierarchy &amp; Roll-Up Chain</p>
+
+      <div class="flow-row">
+        <div class="flow-node dark">🎯 OKRs</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node gold">📋 Initiatives</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node">🚀 Projects</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node blush">📌 Tasks</div>
+      </div>
+      <div class="flow-sub">Objective / Key Result → Strategic Initiative → Deliverable Project → Actionable Task</div>
+
+      <div style="margin: 20px 0; border-top: 1px solid var(--border);"></div>
+
+      <div class="flow-row">
+        <div class="flow-node slate">📣 Channels</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node slate">⚙️ Tactics</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node blush">📌 Tasks</div>
+      </div>
+      <div class="flow-sub">Distribution Channel → Tactical Play → Execution Task</div>
+
+      <div style="margin: 20px 0; border-top: 1px solid var(--border);"></div>
+
+      <div class="flow-row">
+        <div class="flow-node gold">👥 Teams</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node">🚀 Projects</div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node blush">📌 Tasks</div>
+      </div>
+      <div class="flow-sub">Team / Owner → Assigned Project → Individual Task</div>
+    </div>
+
+    <!-- Table definitions -->
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-label label-slate">Table 1</div>
+        <h3>🎯 OKRs</h3>
+        <p>Top-level objectives and measurable key results. Every initiative must link to an OKR for strategic alignment.</p>
+      </div>
+      <div class="card">
+        <div class="card-label label-gold">Table 2</div>
+        <h3>📋 Initiatives</h3>
+        <p>Strategic bets or programs that support an OKR. Each initiative links to one OKR and contains multiple projects.</p>
+      </div>
+      <div class="card">
+        <div class="card-label label-sage">Table 3</div>
+        <h3>🚀 Projects</h3>
+        <p>Discrete deliverables with owners, timelines, and status. Projects roll up to initiatives and surface in dashboards.</p>
+      </div>
+      <div class="card">
+        <div class="card-label label-slate">Table 4</div>
+        <h3>📣 Channels</h3>
+        <p>Distribution or execution channels (email, paid, organic, etc.) that anchor tactics and campaigns.</p>
+      </div>
+      <div class="card">
+        <div class="card-label label-sage">Table 5</div>
+        <h3>⚙️ Tactics</h3>
+        <p>Specific plays or approaches within a channel. Linked to projects and tasks for full execution traceability.</p>
+      </div>
+      <div class="card">
+        <div class="card-label label-gold">Table 6</div>
+        <h3>👥 Teams</h3>
+        <p>Individual contributors and team owners. Used to filter dashboards, route automations, and assign ownership.</p>
+      </div>
+      <div class="card">
+        <div class="card-label label-blush">Table 7</div>
+        <h3>📌 Tasks</h3>
+        <p>Atomic units of work. Linked to project, assignee, channel, and tactic. Status changes trigger automations.</p>
+      </div>
+    </div>
+
+    <div class="note-box">
+      <div class="note-box-label" style="color:var(--sage);">✏️ Structure Notes</div>
+      <input class="note-line" type="text" placeholder="Add field notes, custom views, or naming conventions…" />
+      <input class="note-line" type="text" placeholder="Additional structure thoughts…" />
+    </div>
+  </section>
+
+  <hr class="divider" />
+
+
+  <!-- ════════ 2. INTEGRATIONS ════════ -->
+  <section id="integrations" class="section">
+    <div class="section-header">
+      <div class="section-icon icon-gold">🔗</div>
+      <div class="section-title-group">
+        <h2>External Integrations</h2>
+        <p>Snowflake data warehouse and Google Sheets — keeping Airtable in sync with live data sources.</p>
+      </div>
+    </div>
+
+    <div class="integration-stripe">
+      <div class="int-block">
+        <h4>❄️ Snowflake Integration</h4>
+        <ul>
+          <li>Connect via Airtable's native Snowflake sync or middleware (e.g., Fivetran, Census)</li>
+          <li>Confirm read-only service account permissions and IP allowlisting</li>
+          <li>Define sync cadence — real-time, hourly, or daily refresh</li>
+          <li>Map Snowflake schema fields to Airtable table columns carefully</li>
+          <li>Ask: how are schema changes handled downstream?</li>
+          <li>Consider a staging layer to prevent raw data exposure in Airtable</li>
+        </ul>
+      </div>
+      <div class="int-block">
+        <h4>📊 Google Sheets Integration</h4>
+        <ul>
+          <li>Use Airtable's built-in Google Sheets Sync to append or overwrite rows</li>
+          <li>Clarify: sync direction — Sheets → Airtable, or bidirectional?</li>
+          <li>Handle append-only data carefully — avoid duplicate rows on re-sync</li>
+          <li>Confirm Google account auth and shared drive permissions</li>
+          <li>Use a unique ID column to de-duplicate on each sync cycle</li>
+          <li>Ask: how to manage historical data without overwriting it?</li>
+        </ul>
+      </div>
+    </div>
+
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Integration</th>
+          <th>Direction</th>
+          <th>Refresh Cadence</th>
+          <th>Key Risk</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Snowflake</strong></td>
+          <td>Snowflake → Airtable</td>
+          <td>Daily / On-demand</td>
+          <td>Schema drift, permission scope</td>
+          <td><span class="badge badge-gold">To Confirm</span></td>
+        </tr>
+        <tr>
+          <td><strong>Google Sheets</strong></td>
+          <td>Bidirectional TBD</td>
+          <td>Hourly or append-trigger</td>
+          <td>Duplicate rows on re-sync</td>
+          <td><span class="badge badge-gold">To Confirm</span></td>
+        </tr>
+        <tr>
+          <td><strong>Airtable API</strong></td>
+          <td>In/Out</td>
+          <td>Event-driven</td>
+          <td>Rate limits at scale</td>
+          <td><span class="badge badge-sage">In Scope</span></td>
+        </tr>
+        <tr>
+          <td><strong>ActiveCampaign CRM</strong></td>
+          <td>AC → Airtable</td>
+          <td>Webhook / real-time</td>
+          <td>Field mapping complexity</td>
+          <td><span class="badge badge-slate">Explore</span></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="note-box">
+      <div class="note-box-label" style="color:var(--gold);">✏️ Integration Notes</div>
+      <input class="note-line" type="text" placeholder="Snowflake connector specifics from Airtable team…" />
+      <input class="note-line" type="text" placeholder="Google Sheets de-duplication approach…" />
+      <input class="note-line" type="text" placeholder="Other integration dependencies…" />
+    </div>
+  </section>
+
+  <hr class="divider" />
+
+
+  <!-- ════════ 3. AUTOMATIONS ════════ -->
+  <section id="automations" class="section">
+    <div class="section-header">
+      <div class="section-icon icon-blush">⚡</div>
+      <div class="section-title-group">
+        <h2>Automations</h2>
+        <p>Smart triggers that keep the right people informed and data clean — without manual effort.</p>
+      </div>
+    </div>
+
+    <div class="auto-card">
+      <div class="auto-num" style="background:var(--sage-pale);color:var(--sage);">1</div>
+      <div class="auto-body">
+        <h4>Task Status Change → Email Project Owner</h4>
+        <p>When a linked task changes status to <em>Blocked</em>, <em>Done</em>, or <em>At Risk</em>, automatically send an email to the project owner with the task name, new status, assignee, and a direct link to the record.</p>
+      </div>
+      <div class="auto-trigger" style="background:var(--sage-pale);color:var(--sage);">Email Alert</div>
+    </div>
+
+    <div class="auto-card">
+      <div class="auto-num" style="background:var(--gold-pale);color:#a07c3a;">2</div>
+      <div class="auto-body">
+        <h4>2-Day Pre-Task Reminder</h4>
+        <p>Two days before a task's due date, send an email reminder to the assignee with their pending task list, project context, and the week's upcoming milestones. Keeps the meeting cadence clean and everyone prepared.</p>
+      </div>
+      <div class="auto-trigger" style="background:var(--gold-pale);color:#a07c3a;">Scheduled</div>
+    </div>
+
+    <div class="auto-card">
+      <div class="auto-num" style="background:var(--blush-pale);color:#c27055;">3</div>
+      <div class="auto-body">
+        <h4>New Project Created → Auto-Populate Fields</h4>
+        <p>When a new project record is created, dynamically pre-fill the Project Lead, Default Channel, Status (Draft), and link to the parent Initiative — reducing setup friction and enforcing structural consistency.</p>
+      </div>
+      <div class="auto-trigger" style="background:var(--blush-pale);color:#c27055;">Dynamic Fields</div>
+    </div>
+
+    <div class="auto-card">
+      <div class="auto-num" style="background:var(--slate-pale);color:var(--slate);">4</div>
+      <div class="auto-body">
+        <h4>AI Summary Field — Project Descriptions</h4>
+        <p>An AI agent reads long project descriptions or request notes and populates a short "AI Summary" field on the record. This surfaces high-level context instantly for stakeholders who don't need the full detail.</p>
+      </div>
+      <div class="auto-trigger" style="background:var(--slate-pale);color:var(--slate);">AI Agent</div>
+    </div>
+
+    <div class="auto-card">
+      <div class="auto-num" style="background:var(--sage-pale);color:var(--sage);">5</div>
+      <div class="auto-body">
+        <h4>OKR Progress Update → Weekly Digest</h4>
+        <p>Every Monday morning, compile all project and task completions from the past week, calculate OKR progress percentages, and send a digest email to OKR owners with a summary and any red-flag items needing attention.</p>
+      </div>
+      <div class="auto-trigger" style="background:var(--sage-pale);color:var(--sage);">Weekly Digest</div>
+    </div>
+
+    <div class="auto-card">
+      <div class="auto-num" style="background:var(--gold-pale);color:#a07c3a;">6</div>
+      <div class="auto-body">
+        <h4>Overdue Task → Escalation Alert</h4>
+        <p>If a task passes its due date without being marked complete, trigger an escalation: notify the project owner and their team lead, and automatically flag the parent project status as <em>At Risk</em>.</p>
+      </div>
+      <div class="auto-trigger" style="background:var(--gold-pale);color:#a07c3a;">Escalation</div>
+    </div>
+
+    <div class="note-box">
+      <div class="note-box-label" style="color:#c27055;">✏️ Automation Notes</div>
+      <input class="note-line" type="text" placeholder="Additional automation ideas from the Airtable team…" />
+      <input class="note-line" type="text" placeholder="Email template requirements or tone guidelines…" />
+    </div>
+  </section>
+
+  <hr class="divider" />
+
+
+  <!-- ════════ 4. DASHBOARDS ════════ -->
+  <section id="dashboards" class="section">
+    <div class="section-header">
+      <div class="section-icon icon-slate">📊</div>
+      <div class="section-title-group">
+        <h2>Dynamic Dashboards</h2>
+        <p>Built in Airtable's Interface Designer — personalized per user, filterable by role, project, and team.</p>
+      </div>
+    </div>
+
+    <!-- Dashboard structure visual -->
+    <div class="flow-diagram" style="margin-bottom:24px;">
+      <p style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:16px;">Dashboard Layout Architecture</p>
+      <table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <tr>
+          <td style="padding:10px;background:var(--sage-pale);border-radius:8px;width:33%;text-align:center;font-weight:600;color:var(--ink);">Section A<br><span style="font-weight:400;color:var(--muted);">My Tasks &amp; Status</span></td>
+          <td style="width:16px;"></td>
+          <td style="padding:10px;background:var(--gold-pale);border-radius:8px;width:33%;text-align:center;font-weight:600;color:var(--ink);">Section B<br><span style="font-weight:400;color:var(--muted);">Project Health</span></td>
+          <td style="width:16px;"></td>
+          <td style="padding:10px;background:var(--blush-pale);border-radius:8px;width:33%;text-align:center;font-weight:600;color:var(--ink);">Section C<br><span style="font-weight:400;color:var(--muted);">OKR Alignment</span></td>
+        </tr>
+        <tr><td colspan="5" style="height:16px;"></td></tr>
+        <tr>
+          <td style="padding:10px;background:var(--slate-pale);border-radius:8px;text-align:center;font-size:12px;color:var(--slate);">Kanban / List<br>Filtered by User field</td>
+          <td></td>
+          <td style="padding:10px;background:var(--slate-pale);border-radius:8px;text-align:center;font-size:12px;color:var(--slate);">Timeline view<br>% complete + at-risk flags</td>
+          <td></td>
+          <td style="padding:10px;background:var(--slate-pale);border-radius:8px;text-align:center;font-size:12px;color:var(--slate);">Progress bars<br>Metric cards per OKR</td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- Mock dashboard panels -->
+    <div class="dash-grid">
+      <div class="dash-panel">
+        <div class="dash-panel-header" style="background:var(--sage-pale);color:var(--sage);">📋 My Tasks</div>
+        <div class="dash-panel-body">
+          <div class="dash-metric"><strong>Email Automation Draft</strong><span class="badge badge-gold">In Progress</span></div>
+          <div class="dash-metric"><strong>Q2 OKR Review Deck</strong><span class="badge badge-blush">Overdue</span></div>
+          <div class="dash-metric"><strong>Airtable Field Mapping</strong><span class="badge badge-sage">Done</span></div>
+          <p style="font-size:11.5px;color:var(--muted);margin-top:8px;">Filtered by: <strong>Your User field</strong> — each team member sees only their own tasks.</p>
+        </div>
+      </div>
+
+      <div class="dash-panel">
+        <div class="dash-panel-header" style="background:var(--gold-pale);color:#a07c3a;">🚀 Project Health</div>
+        <div class="dash-panel-body">
+          <div class="dash-metric"><span>Airtable Setup</span><strong>72%</strong></div>
+          <div class="progress-bar-wrap"><div class="progress-bar" style="width:72%;background:var(--sage);"></div></div>
+          <div class="dash-metric"><span>Q2 Campaign</span><strong>45%</strong></div>
+          <div class="progress-bar-wrap"><div class="progress-bar" style="width:45%;background:var(--gold);"></div></div>
+          <div class="dash-metric"><span>Partner Enablement</span><strong>90%</strong></div>
+          <div class="progress-bar-wrap"><div class="progress-bar" style="width:90%;background:var(--sage);"></div></div>
+        </div>
+      </div>
+
+      <div class="dash-panel">
+        <div class="dash-panel-header" style="background:var(--blush-pale);color:#c27055;">🎯 OKR Alignment</div>
+        <div class="dash-panel-body">
+          <div class="dash-metric"><span>Grow Pipeline by 30%</span><strong>61%</strong></div>
+          <div class="progress-bar-wrap"><div class="progress-bar" style="width:61%;background:#e8b4a0;"></div></div>
+          <div class="dash-metric"><span>Improve Retention NPS</span><strong>80%</strong></div>
+          <div class="progress-bar-wrap"><div class="progress-bar" style="width:80%;background:var(--sage);"></div></div>
+          <div class="dash-metric"><span>Launch 3 Integrations</span><strong>33%</strong></div>
+          <div class="progress-bar-wrap"><div class="progress-bar" style="width:33%;background:var(--gold);"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- View types -->
+    <div style="background:var(--white);border:1px solid var(--border);border-radius:14px;padding:22px 24px;margin-top:16px;">
+      <p style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:12px;">Available View Types in Interface Designer</p>
+      <span class="view-chip" style="background:var(--sage-pale);color:var(--sage);border-color:var(--sage-light);">Kanban Board</span>
+      <span class="view-chip" style="background:var(--gold-pale);color:#a07c3a;border-color:var(--gold-light);">Timeline / Gantt</span>
+      <span class="view-chip" style="background:var(--blush-pale);color:#c27055;border-color:var(--blush-light);">List View</span>
+      <span class="view-chip" style="background:var(--slate-pale);color:var(--slate);border-color:var(--slate-light);">Gallery</span>
+      <span class="view-chip" style="background:var(--sage-pale);color:var(--sage);border-color:var(--sage-light);">Metric Cards</span>
+      <span class="view-chip" style="background:var(--gold-pale);color:#a07c3a;border-color:var(--gold-light);">Progress Bars</span>
+      <span class="view-chip" style="background:var(--blush-pale);color:#c27055;border-color:var(--blush-light);">Calendar</span>
+      <span class="view-chip" style="background:var(--slate-pale);color:var(--slate);border-color:var(--slate-light);">Chart / Bar</span>
+      <p style="font-size:12px;color:var(--muted);margin-top:14px;">🔑 <strong>Dynamic personalization key:</strong> Configure each view to filter by a <code style="background:#f0f0f0;padding:1px 6px;border-radius:4px;font-size:11px;">User</code> field linked to the logged-in collaborator. Each team member sees a tailored view without any manual switching.</p>
+    </div>
+
+    <div class="note-box">
+      <div class="note-box-label" style="color:var(--slate);">✏️ Dashboard Notes</div>
+      <input class="note-line" type="text" placeholder="Priority sections for initial dashboard build…" />
+      <input class="note-line" type="text" placeholder="User field setup — how to configure personalization…" />
+    </div>
+  </section>
+
+  <hr class="divider" />
+
+
+  <!-- ════════ 5. ALERTS & AI ════════ -->
+  <section id="alerts" class="section">
+    <div class="section-header">
+      <div class="section-icon icon-blush">🤖</div>
+      <div class="section-title-group">
+        <h2>Alerts &amp; AI Synthesis</h2>
+        <p>Proactive notifications and AI agents that surface what matters — so nothing gets missed.</p>
+      </div>
+    </div>
+
+    <div style="background:var(--white);border:1px solid var(--border);border-radius:14px;padding:24px 26px;">
+      <div class="alert-row">
+        <div class="alert-dot" style="background:#ef4444;"></div>
+        <div>
+          <h5>🚨 Overdue Task Alert</h5>
+          <p>Triggers when a task's due date passes without completion. Notifies the assignee and project owner. Parent project status auto-flags as <em>At Risk</em>.</p>
+        </div>
+      </div>
+      <div class="alert-row">
+        <div class="alert-dot" style="background:var(--gold);"></div>
+        <div>
+          <h5>⚠️ At-Risk Project Escalation</h5>
+          <p>When a project is manually or automatically marked <em>At Risk</em>, an alert fires to the initiative owner with a summary of blocked tasks and recommended next steps.</p>
+        </div>
+      </div>
+      <div class="alert-row">
+        <div class="alert-dot" style="background:var(--sage);"></div>
+        <div>
+          <h5>✅ Milestone Completion Notification</h5>
+          <p>When 100% of a project's tasks are complete, notify relevant stakeholders and OKR owners that a milestone has been hit. Triggers a prompt to update OKR progress.</p>
+        </div>
+      </div>
+      <div class="alert-row">
+        <div class="alert-dot" style="background:var(--slate);"></div>
+        <div>
+          <h5>🤖 AI High-Level Request Synthesis</h5>
+          <p>An AI agent monitors new records tagged as "Requests" and synthesizes the key ask, priority, and impacted team into a structured summary field. Stakeholders get the gist instantly without reading full briefs.</p>
+        </div>
+      </div>
+      <div class="alert-row">
+        <div class="alert-dot" style="background:#a78bfa;"></div>
+        <div>
+          <h5>📬 2-Day Pre-Task Reminder</h5>
+          <p>Automated email sent two days before a task's due date with pending task context, project link, and what's coming up that week. Enables everyone to arrive at meetings ready.</p>
+        </div>
+      </div>
+      <div class="alert-row">
+        <div class="alert-dot" style="background:var(--blush);"></div>
+        <div>
+          <h5>📋 Weekly OKR Digest (Mondays)</h5>
+          <p>Every Monday, OKR owners receive an automated digest showing completion percentages, blocked items, and a plain-English AI summary of where the quarter stands.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="note-box">
+      <div class="note-box-label" style="color:#c27055;">✏️ Alert &amp; AI Notes</div>
+      <input class="note-line" type="text" placeholder="Which alert types are highest priority to launch first…" />
+      <input class="note-line" type="text" placeholder="AI field setup — prompt templates and summarization rules…" />
+    </div>
+  </section>
+
+  <hr class="divider" />
+
+
+  <!-- ════════ 6. MEETING CADENCE ════════ -->
+  <section id="meeting" class="section">
+    <div class="section-header">
+      <div class="section-icon icon-sage">🗓</div>
+      <div class="section-title-group">
+        <h2>20-Minute Meeting Cadence</h2>
+        <p>High-level, structured, and respectful of everyone's time. Pre-work handled by automations — the meeting is for decisions and unblocking.</p>
+      </div>
+    </div>
+
+    <div class="meeting-timeline">
+      <div class="meeting-slot">
+        <div class="meeting-slot-time" style="color:#ef4444;">0–5 min</div>
+        <h4>🚨 Blockers First</h4>
+        <ul>
+          <li>What is actively blocked?</li>
+          <li>Who owns the unblock?</li>
+          <li>Assign action + deadline</li>
+          <li>Flag for escalation if needed</li>
+        </ul>
+      </div>
+      <div class="meeting-slot">
+        <div class="meeting-slot-time" style="color:var(--gold);">5–15 min</div>
+        <h4>📅 Immediate Timeline</h4>
+        <ul>
+          <li>Review this week's milestones</li>
+          <li>Launch prep status check</li>
+          <li>Confirm owners for at-risk items</li>
+          <li>Surface any scope changes</li>
+        </ul>
+      </div>
+      <div class="meeting-slot">
+        <div class="meeting-slot-time" style="color:var(--sage);">15–20 min</div>
+        <h4>🔭 Next Week Priorities</h4>
+        <ul>
+          <li>Top 3 priorities per team</li>
+          <li>Dependencies to watch</li>
+          <li>Any new requests or asks</li>
+          <li>Close &amp; confirm action items</li>
+        </ul>
+      </div>
+    </div>
+
+    <div style="background:var(--sage-pale);border:1px solid var(--sage-light);border-radius:14px;padding:20px 24px;">
+      <p style="font-size:13px;color:var(--ink);line-height:1.7;">
+        <strong>✉️ Pre-Meeting Automation:</strong> Two days before each meeting, Airtable automatically sends each attendee a personalized email with their pending tasks, upcoming milestones, and any at-risk flags. The meeting agenda populates itself from live Airtable data — no manual prep required.
+      </p>
+    </div>
+
+    <div class="note-box">
+      <div class="note-box-label" style="color:var(--sage);">✏️ Meeting Notes</div>
+      <input class="note-line" type="text" placeholder="Meeting owner / facilitator…" />
+      <input class="note-line" type="text" placeholder="Recurring day + time for standing sync…" />
+      <input class="note-line" type="text" placeholder="Exceptions, async alternatives, or async-first rules…" />
+    </div>
+  </section>
+
+  <hr class="divider" />
+
+
+  <!-- ════════ 7. QUESTIONS FOR AIRTABLE ════════ -->
+  <section id="questions" class="section">
+    <div class="section-header">
+      <div class="section-icon icon-ink">❓</div>
+      <div class="section-title-group">
+        <h2>Questions for the Airtable Team</h2>
+        <p>Bring these to the meeting — answers will shape the build approach significantly.</p>
+      </div>
+    </div>
+
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Question</th>
+          <th>Category</th>
+          <th>Priority</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1</td>
+          <td>What permissions are required for the Snowflake sync connector — service account or OAuth?</td>
+          <td><span class="badge badge-gold">Snowflake</span></td>
+          <td><span class="badge badge-blush">High</span></td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td>How does Airtable handle Snowflake schema changes — do linked fields break?</td>
+          <td><span class="badge badge-gold">Snowflake</span></td>
+          <td><span class="badge badge-blush">High</span></td>
+        </tr>
+        <tr>
+          <td>3</td>
+          <td>For Google Sheets append-mode data, how do we prevent duplicate rows on each sync cycle?</td>
+          <td><span class="badge badge-sage">Sheets</span></td>
+          <td><span class="badge badge-blush">High</span></td>
+        </tr>
+        <tr>
+          <td>4</td>
+          <td>Can automations reference fields from linked tables (e.g., task → project owner email)?</td>
+          <td><span class="badge badge-slate">Automations</span></td>
+          <td><span class="badge badge-blush">High</span></td>
+        </tr>
+        <tr>
+          <td>5</td>
+          <td>What are the rate limits on automations — will 6 concurrent triggers cause throttling?</td>
+          <td><span class="badge badge-slate">Automations</span></td>
+          <td><span class="badge badge-gold">Medium</span></td>
+        </tr>
+        <tr>
+          <td>6</td>
+          <td>How does Interface Designer handle user-level filtering — is it based on email login or a User field?</td>
+          <td><span class="badge badge-sage">Dashboards</span></td>
+          <td><span class="badge badge-blush">High</span></td>
+        </tr>
+        <tr>
+          <td>7</td>
+          <td>What AI capabilities are available natively — can we set custom prompts per field?</td>
+          <td><span class="badge badge-slate">AI</span></td>
+          <td><span class="badge badge-gold">Medium</span></td>
+        </tr>
+        <tr>
+          <td>8</td>
+          <td>What does a recommended phased rollout look like for a 7-table linked structure?</td>
+          <td><span class="badge badge-sage">Architecture</span></td>
+          <td><span class="badge badge-gold">Medium</span></td>
+        </tr>
+        <tr>
+          <td>9</td>
+          <td>Are there plan-level limits on the number of synced tables or automation runs per month?</td>
+          <td><span class="badge badge-gold">Pricing/Plan</span></td>
+          <td><span class="badge badge-blush">High</span></td>
+        </tr>
+        <tr>
+          <td>10</td>
+          <td>Can you show us an example base that handles OKR → Initiative → Project → Task hierarchies?</td>
+          <td><span class="badge badge-sage">Reference</span></td>
+          <td><span class="badge badge-slate">Nice to Have</span></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="note-box">
+      <div class="note-box-label" style="color:var(--ink);">✏️ Additional Questions</div>
+      <input class="note-line" type="text" placeholder="Add your own question here…" />
+      <input class="note-line" type="text" placeholder="Add your own question here…" />
+      <input class="note-line" type="text" placeholder="Add your own question here…" />
+    </div>
+  </section>
+
+  <hr class="divider" />
+
+
+  <!-- ════════ 8. NOTES ════════ -->
+  <section id="notes" class="section">
+    <div class="section-header">
+      <div class="section-icon icon-gold">📝</div>
+      <div class="section-title-group">
+        <h2>Meeting Notes &amp; Action Items</h2>
+        <p>Capture decisions, action owners, and follow-ups in real time.</p>
+      </div>
+    </div>
+
+    <div style="background:var(--white);border:1px solid var(--border);border-radius:16px;padding:28px 28px;">
+      <p style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:18px;">📋 Key Decisions</p>
+      <input class="note-line" type="text" placeholder="Decision 1…" />
+      <input class="note-line" type="text" placeholder="Decision 2…" />
+      <input class="note-line" type="text" placeholder="Decision 3…" />
+
+      <p style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:24px;margin-bottom:18px;">✅ Action Items</p>
+      <input class="note-line" type="text" placeholder="Action Item + Owner + Due Date…" />
+      <input class="note-line" type="text" placeholder="Action Item + Owner + Due Date…" />
+      <input class="note-line" type="text" placeholder="Action Item + Owner + Due Date…" />
+      <input class="note-line" type="text" placeholder="Action Item + Owner + Due Date…" />
+
+      <p style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:24px;margin-bottom:18px;">🚨 Open Blockers</p>
+      <input class="note-line" type="text" placeholder="Blocker + Who can unblock it…" />
+      <input class="note-line" type="text" placeholder="Blocker + Who can unblock it…" />
+
+      <p style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:24px;margin-bottom:18px;">📅 Next Steps &amp; Follow-Ups</p>
+      <input class="note-line" type="text" placeholder="Next step 1…" />
+      <input class="note-line" type="text" placeholder="Next step 2…" />
+      <input class="note-line" type="text" placeholder="Next step 3…" />
+    </div>
+  </section>
+
+</main>
+
+<!-- ╔══════════════════════════════════════════════════════╗ -->
+<!-- ║                     FOOTER                          ║ -->
+<!-- ╚══════════════════════════════════════════════════════╝ -->
+<footer class="footer">
+  <strong>ActiveCampaign</strong> · Airtable Integration &amp; Data Flow · Internal Strategy Document · May 2026
+  <br/>Prepared for the Airtable Integration Meeting — Confidential &amp; Internal Use Only
+</footer>
+
+</body>
+</html>
